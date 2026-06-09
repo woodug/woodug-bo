@@ -5,6 +5,5 @@ public enum GameStatus {
     IN_PROGRESS,  // 진행 중
     SUSPENDED,    // 중단 (우천 등)
     FINISHED,     // 종료
-    CANCELLED,    // 당일 취소
-    POSTPONED     // 연기 (타 날짜로 이동)
+    CANCELLED     // 취소/연기
 }

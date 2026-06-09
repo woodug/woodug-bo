@@ -121,7 +121,7 @@ CREATE TABLE games
 COMMENT ON TABLE games IS 'KBO 경기 정보';
 COMMENT ON COLUMN games.game_date IS '경기 날짜. scheduled_at과 별도로 날짜 기준 조회에 사용';
 COMMENT ON COLUMN games.scheduled_at IS '예정 시작 시각. 우천 지연 시 업데이트';
-COMMENT ON COLUMN games.status IS 'SCHEDULED: 예정 | IN_PROGRESS: 진행중 | SUSPENDED: 중단 | FINISHED: 종료 | CANCELLED: 당일취소 | POSTPONED: 연기';
+COMMENT ON COLUMN games.status IS 'SCHEDULED: 예정 | IN_PROGRESS: 진행중 | SUSPENDED: 중단 | FINISHED: 종료 | CANCELLED: 취소/연기';
 COMMENT ON COLUMN games.inning_half IS 'TOP: 초(원정팀 공격) | BOTTOM: 말(홈팀 공격)';
 COMMENT ON COLUMN games.cancel_reason IS '취소/중단/연기 사유 (예: 우천취소, 강풍)';
 COMMENT ON COLUMN games.is_called_game IS '콜드게임(Called Game) 여부. status=FINISHED이면서 정규 이닝 전에 종료된 경기 (우천콜드, 점수차콜드)';

@@ -115,11 +115,6 @@ public class Game extends BaseEntity {
         this.cancelReason = reason;
     }
 
-    public void postpone(String reason) {
-        this.status = GameStatus.POSTPONED;
-        this.cancelReason = reason;
-    }
-
     public void reschedule(LocalDateTime newScheduledAt) {
         this.status = GameStatus.SCHEDULED;
         this.scheduledAt = newScheduledAt;

@@ -270,8 +270,6 @@ public class GameScrapingService {
             }
         } else if (newStatus == GameStatus.CANCELLED && prev != GameStatus.CANCELLED) {
             game.cancel(dto.getCancelScNm());
-        } else if (newStatus == GameStatus.POSTPONED && prev != GameStatus.POSTPONED) {
-            game.postpone(dto.getCancelScNm());
         }
 
         if (newStatus == GameStatus.IN_PROGRESS
@@ -289,9 +287,6 @@ public class GameScrapingService {
         String cancelId = dto.getCancelScId();
         if (cancelId != null && !cancelId.isBlank() && !"0".equals(cancelId)) {
             String nm = dto.getCancelScNm();
-            if (nm != null && (nm.contains("우천") || nm.contains("기타"))) {
-                return GameStatus.POSTPONED;
-            }
             return GameStatus.CANCELLED;
         }
         return switch (Optional.ofNullable(dto.getGameStateSc()).orElse("0")) {
