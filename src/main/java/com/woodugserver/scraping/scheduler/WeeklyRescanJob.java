@@ -17,8 +17,9 @@ public class WeeklyRescanJob {
 
     @Scheduled(cron = "${scraping.kbo.schedule.weekly-rescan:0 0 3 * * MON}")
     public void run() {
-        LocalDate today = LocalDate.now();
-        log.info("[WeeklyRescanJob] 미래 일정 재스캔 시작: {}~", today);
-        gameScrapingService.scrapeForward(today);
+        String year = String.valueOf(LocalDate.now().getYear());
+        log.info("[WeeklyRescanJob] {}년 전체 시즌 재스캔 시작", year);
+        // 시작일부터 전체 재스캔 — 초기 스크랩에서 놓친 구간도 보완
+        gameScrapingService.rescanFullSeason(year);
     }
 }

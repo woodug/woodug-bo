@@ -112,8 +112,19 @@ public class GameScrapingService {
     }
 
     // ---------------------------------------------------------------
-    // 미래 일정 재스캔 (WeeklyRescanJob에서 호출)
+    // 전체 시즌 재스캔 (WeeklyRescanJob에서 호출 — 시작일부터 전체 재검토)
     // ---------------------------------------------------------------
+
+    @Async
+    public void rescanFullSeason(String year) {
+        Season season = seasonRepository.findByYear(year).orElse(null);
+        if (season == null) {
+            log.warn("[Scraping] {}년 시즌 데이터 없음, rescanFullSeason 생략", year);
+            return;
+        }
+        log.info("[Scraping] {}년 전체 시즌 재스캔 시작 (from={})", year, season.getStartDate());
+        doScrapeForward(season.getStartDate(), season);
+    }
 
     @Async
     public void scrapeForward(LocalDate from) {
@@ -198,23 +209,35 @@ public class GameScrapingService {
 
     private boolean upsertGame(KboGameDto dto, Season season) {
         GameStatus newStatus = resolveStatus(dto);
-        // CANCELLED 상태는 변경하지 않음 — 취소 이력을 보존하고 새 row를 생성
-        Optional<Game> existing = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELLED);
 
-        if (existing.isEmpty()) {
-            Game game = buildNewGame(dto, season, newStatus);
-            if (game != null) {
-                gameRepository.save(game);
-                return true;
-            }
+        // 취소되지 않은 기존 경기 → 점수/상태 업데이트
+        Optional<Game> activeGame = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELLED);
+        if (activeGame.isPresent()) {
+            updateGame(activeGame.get(), dto, newStatus);
             return false;
         }
 
-        updateGame(existing.get(), dto, newStatus);
+        LocalDateTime scheduledAt = parseScheduledAt(dto.getGDt(), dto.getGTm());
+        if (scheduledAt == null) {
+            return false;
+        }
+        LocalDate gameDate = scheduledAt.toLocalDate();
+
+        // 같은 날짜에 이미 취소 이력이 있으면 스킵 — 재스캔 시 이력 덮어쓰기 방지
+        if (gameRepository.existsByKboGameIdAndGameDate(dto.getGId(), gameDate)) {
+            return false;
+        }
+
+        // 완전히 새 경기이거나 다른 날짜로 재편성된 경기 → 새 row 삽입
+        Game game = buildNewGame(dto, season, newStatus, scheduledAt);
+        if (game != null) {
+            gameRepository.save(game);
+            return true;
+        }
         return false;
     }
 
-    private Game buildNewGame(KboGameDto dto, Season season, GameStatus status) {
+    private Game buildNewGame(KboGameDto dto, Season season, GameStatus status, LocalDateTime scheduledAt) {
         Team homeTeam = teamByCode.get(dto.getHomeId());
         Team awayTeam = teamByCode.get(dto.getAwayId());
         if (homeTeam == null || awayTeam == null) {
@@ -224,10 +247,8 @@ public class GameScrapingService {
         }
 
         Stadium stadium = resolveStadium(dto.getSNm());
-        LocalDateTime scheduledAt = parseScheduledAt(dto.getGDt(), dto.getGTm());
-        if (stadium == null || scheduledAt == null) {
-            log.warn("[Scraping] 경기장 또는 일정 파싱 실패: gId={}, sNm={}, gDt={}, gTm={}",
-                dto.getGId(), dto.getSNm(), dto.getGDt(), dto.getGTm());
+        if (stadium == null) {
+            log.warn("[Scraping] 경기장 매핑 실패: gId={}, sNm={}", dto.getGId(), dto.getSNm());
             return null;
         }
 

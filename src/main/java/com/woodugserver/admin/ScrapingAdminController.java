@@ -41,6 +41,20 @@ public class ScrapingAdminController {
     }
 
     /**
+     * 전체 시즌 재스캔 (누락 경기 보완용)
+     * POST /admin/scraping/rescan?year=2026
+     */
+    @PostMapping("/rescan")
+    public ApiResponse<Void> rescanSeason(
+            @RequestParam(required = false) String year) {
+
+        String target = (year != null) ? year : String.valueOf(LocalDate.now().getYear());
+        log.info("[Admin] {}년 전체 시즌 재스캔 요청", target);
+        gameScrapingService.rescanFullSeason(target);
+        return ApiResponse.ok(target + "년 전체 시즌 재스캔 시작됨 (백그라운드)");
+    }
+
+    /**
      * 날짜 범위 일괄 동기화 (과거 데이터 보정용)
      * POST /admin/scraping/sync/range?from=2026-06-01&to=2026-06-09
      */
