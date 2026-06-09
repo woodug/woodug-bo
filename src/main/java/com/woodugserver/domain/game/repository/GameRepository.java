@@ -15,6 +15,8 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     Optional<Game> findByKboGameId(String kboGameId);
 
+    Optional<Game> findByKboGameIdAndStatusNot(String kboGameId, GameStatus status);
+
     List<Game> findByGameDate(LocalDate gameDate);
 
     List<Game> findByGameDateAndStatusIn(LocalDate gameDate, List<GameStatus> statuses);

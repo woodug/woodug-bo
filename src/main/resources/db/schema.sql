@@ -98,7 +98,7 @@ CREATE INDEX idx_players_status ON players (status);
 CREATE TABLE games
 (
     id             BIGSERIAL PRIMARY KEY,
-    kbo_game_id    VARCHAR(20) UNIQUE,                         -- KBO 홈페이지 경기 고유 ID (예: 20260328KTLG0)
+    kbo_game_id    VARCHAR(20),                                -- KBO 홈페이지 경기 고유 ID (예: 20260328KTLG0)
     season_id      BIGINT      NOT NULL REFERENCES seasons (id),
     home_team_id   BIGINT      NOT NULL REFERENCES teams (id), -- 홈 팀
     away_team_id   BIGINT      NOT NULL REFERENCES teams (id), -- 원정 팀
@@ -131,6 +131,8 @@ CREATE INDEX idx_games_status ON games (status);
 CREATE INDEX idx_games_season_id ON games (season_id);
 CREATE INDEX idx_games_home_team ON games (home_team_id);
 CREATE INDEX idx_games_away_team ON games (away_team_id);
+-- 취소되지 않은 경기만 kbo_game_id 유일성 보장 (취소 이력은 중복 허용)
+CREATE UNIQUE INDEX idx_games_kbo_game_id_active ON games (kbo_game_id) WHERE status <> 'CANCELLED';
 
 -- ============================================================
 -- 이닝별 점수
@@ -439,6 +441,8 @@ CREATE INDEX idx_comment_likes_comment_id ON comment_likes (comment_id);
 -- ============================================================
 
 -- games.kbo_game_id 추가 (기존 DB 대상)
-ALTER TABLE games
-    ADD COLUMN IF NOT EXISTS kbo_game_id VARCHAR(20) UNIQUE;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS kbo_game_id VARCHAR(20);
+-- UNIQUE → partial unique index 교체 (취소 이력 보존)
+DROP INDEX IF EXISTS games_kbo_game_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_games_kbo_game_id_active ON games (kbo_game_id) WHERE status <> 'CANCELLED';
 

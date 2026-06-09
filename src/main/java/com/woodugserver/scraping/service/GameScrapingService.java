@@ -197,8 +197,9 @@ public class GameScrapingService {
     }
 
     private boolean upsertGame(KboGameDto dto, Season season) {
-        Optional<Game> existing = gameRepository.findByKboGameId(dto.getGId());
         GameStatus newStatus = resolveStatus(dto);
+        // CANCELLED 상태는 변경하지 않음 — 취소 이력을 보존하고 새 row를 생성
+        Optional<Game> existing = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELLED);
 
         if (existing.isEmpty()) {
             Game game = buildNewGame(dto, season, newStatus);
