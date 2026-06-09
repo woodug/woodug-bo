@@ -111,7 +111,7 @@ public class Game extends BaseEntity {
     }
 
     public void cancel(String reason) {
-        this.status = GameStatus.CANCELLED;
+        this.status = GameStatus.CANCELED;
         this.cancelReason = reason;
     }
 

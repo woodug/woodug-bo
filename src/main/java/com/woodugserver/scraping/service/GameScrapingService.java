@@ -211,7 +211,7 @@ public class GameScrapingService {
         GameStatus newStatus = resolveStatus(dto);
 
         // 취소되지 않은 기존 경기 → 점수/상태 업데이트
-        Optional<Game> activeGame = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELLED);
+        Optional<Game> activeGame = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELED);
         if (activeGame.isPresent()) {
             updateGame(activeGame.get(), dto, newStatus);
             return false;
@@ -290,7 +290,7 @@ public class GameScrapingService {
             } else {
                 game.finish();
             }
-        } else if (newStatus == GameStatus.CANCELLED && prev != GameStatus.CANCELLED) {
+        } else if (newStatus == GameStatus.CANCELED && prev != GameStatus.CANCELED) {
             game.cancel(dto.getCancelScNm());
         }
 
@@ -309,7 +309,7 @@ public class GameScrapingService {
         String cancelId = dto.getCancelScId();
         if (cancelId != null && !cancelId.isBlank() && !"0".equals(cancelId)) {
             String nm = dto.getCancelScNm();
-            return GameStatus.CANCELLED;
+            return GameStatus.CANCELED;
         }
         return switch (Optional.ofNullable(dto.getGameStateSc()).orElse("0")) {
             case "1" -> GameStatus.SCHEDULED;
