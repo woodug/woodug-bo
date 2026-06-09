@@ -35,3 +35,13 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### QueryDSL Generated ###
+src/main/generated/
+
+### Environment ###
+.env
+.env.local
+application-secret.yml
+src/main/resources/application.yml
+src/main/resources/application-*.yml

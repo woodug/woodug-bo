@@ -18,16 +18,76 @@ repositories {
     mavenCentral()
 }
 
+def querydslVersion = '5.1.0'
+def jjwtVersion = '0.12.6'
+def playwrightVersion = '1.49.0'
+def generatedDir = 'src/main/generated'
+
+sourceSets {
+    main {
+        java {
+            srcDirs += [generatedDir]
+        }
+    }
+}
+
 dependencies {
+    // Web
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    compileOnly 'org.projectlombok:lombok'
-    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // JWT
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // QueryDSL (Jakarta)
+    implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
+    annotationProcessor "com.querydsl:querydsl-apt:${querydslVersion}:jakarta"
+    annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
+
+    // PostgreSQL
     runtimeOnly 'org.postgresql:postgresql'
+
+    // Playwright (KBO 스크래핑)
+    implementation "com.microsoft.playwright:playwright:${playwrightVersion}"
+
+    // Jsoup (정적 HTML 파싱 보조)
+    implementation 'org.jsoup:jsoup:1.18.3'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // DevTools
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.getGeneratedSourceOutputDirectory().set(file(generatedDir))
+}
+
+clean {
+    delete file(generatedDir)
 }
 
 tasks.named('test') {
