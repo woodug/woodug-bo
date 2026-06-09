@@ -1,0 +1,26 @@
+package com.woodugserver.domain.game.repository;
+
+import com.woodugserver.domain.game.entity.Game;
+import com.woodugserver.domain.game.entity.GameStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+public interface GameRepository extends JpaRepository<Game, Long> {
+
+    Optional<Game> findByKboGameId(String kboGameId);
+
+    List<Game> findByGameDate(LocalDate gameDate);
+
+    List<Game> findByGameDateAndStatusIn(LocalDate gameDate, List<GameStatus> statuses);
+
+    boolean existsByGameDateAndStatusIn(LocalDate gameDate, List<GameStatus> statuses);
+
+    @Query("SELECT MIN(g.scheduledAt) FROM Game g WHERE g.gameDate = :date AND g.status IN :statuses")
+    Optional<LocalDateTime> findEarliestScheduledAt(@Param("date") LocalDate date, @Param("statuses") List<GameStatus> statuses);
+}
