@@ -16,6 +16,9 @@ public enum ErrorCode {
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
+
+    // Team
+    TEAM_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 구단입니다."),
     SUSPENDED_USER(HttpStatus.FORBIDDEN, "정지된 계정입니다."),
     WITHDRAWN_USER(HttpStatus.FORBIDDEN, "탈퇴한 계정입니다.");
 

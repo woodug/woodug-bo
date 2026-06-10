@@ -1,6 +1,8 @@
 package com.woodugserver.domain.auth.service;
 
 import com.woodugserver.domain.auth.dto.*;
+import com.woodugserver.domain.team.entity.Team;
+import com.woodugserver.domain.team.repository.TeamRepository;
 import com.woodugserver.domain.user.entity.User;
 import com.woodugserver.domain.user.entity.UserStatus;
 import com.woodugserver.domain.user.repository.UserRepository;
@@ -20,6 +22,7 @@ import java.time.Duration;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
@@ -33,10 +36,17 @@ public class AuthService {
             throw new CustomException(ErrorCode.NICKNAME_ALREADY_EXISTS);
         }
 
+        Team favoriteTeam = null;
+        if (request.favoriteTeamId() != null) {
+            favoriteTeam = teamRepository.findById(request.favoriteTeamId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.TEAM_NOT_FOUND));
+        }
+
         User user = User.builder()
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .nickname(request.nickname())
+                .favoriteTeam(favoriteTeam)
                 .build();
         userRepository.save(user);
     }
