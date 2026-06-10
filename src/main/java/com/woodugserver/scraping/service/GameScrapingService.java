@@ -270,6 +270,11 @@ public class GameScrapingService {
             .inningHalf(resolveInningHalf(dto.getGameTbSc()))
             .cancelReason(dto.getCancelScNm())
             .isCalledGame(calledGame)
+            .awayStartingPitcher(trim(dto.getTPitPNm()))
+            .homeStartingPitcher(trim(dto.getBPitPNm()))
+            .winningPitcher(trim(dto.getWPitPNm()))
+            .losingPitcher(trim(dto.getLPitPNm()))
+            .savePitcher(trim(dto.getSvPitPNm()))
             .build();
     }
 
@@ -318,6 +323,14 @@ public class GameScrapingService {
                 inning != null ? inning : 0,
                 half);
         }
+
+        game.updatePitchers(
+            trim(dto.getTPitPNm()),
+            trim(dto.getBPitPNm()),
+            trim(dto.getWPitPNm()),
+            trim(dto.getLPitPNm()),
+            trim(dto.getSvPitPNm()));
+
         return statusTransitioned;
     }
 
@@ -375,6 +388,10 @@ public class GameScrapingService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private String trim(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
     }
 
     private InningHalf resolveInningHalf(String gameTbSc) {

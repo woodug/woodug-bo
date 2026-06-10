@@ -79,6 +79,21 @@ public class Game extends BaseEntity {
     @Builder.Default
     private Boolean isCalledGame = false;
 
+    @Column(length = 50)
+    private String awayStartingPitcher;
+
+    @Column(length = 50)
+    private String homeStartingPitcher;
+
+    @Column(length = 50)
+    private String winningPitcher;
+
+    @Column(length = 50)
+    private String losingPitcher;
+
+    @Column(length = 50)
+    private String savePitcher;
+
     public void start() {
         this.status = GameStatus.IN_PROGRESS;
         this.startedAt = LocalDateTime.now();
@@ -118,5 +133,14 @@ public class Game extends BaseEntity {
     public void reschedule(LocalDateTime newScheduledAt) {
         this.status = GameStatus.SCHEDULED;
         this.scheduledAt = newScheduledAt;
+    }
+
+    public void updatePitchers(String awayStarter, String homeStarter,
+                               String winner, String loser, String saver) {
+        this.awayStartingPitcher = awayStarter;
+        this.homeStartingPitcher = homeStarter;
+        this.winningPitcher = winner;
+        this.losingPitcher = loser;
+        this.savePitcher = saver;
     }
 }
