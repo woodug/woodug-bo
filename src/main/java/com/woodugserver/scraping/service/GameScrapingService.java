@@ -191,50 +191,50 @@ public class GameScrapingService {
     }
 
     private void processDayGames(List<KboGameDto> dtos, Season season, LocalDate date) {
-        int created = 0, updated = 0;
+        int created = 0, statusChanged = 0;
         for (KboGameDto dto : dtos) {
             try {
-                boolean isNew = upsertGame(dto, season);
-                if (isNew) {
-                    created++;
-                } else {
-                    updated++;
-                }
+                int result = upsertGame(dto, season); // 1=신규, 2=상태변경, 0=점수만갱신/-1=스킵
+                if (result == 1) created++;
+                else if (result == 2) statusChanged++;
             } catch (Exception e) {
                 log.error("[Scraping] 게임 처리 실패: gId={}, error={}", dto.getGId(), e.getMessage(), e);
             }
         }
-        log.info("[Scraping] {} 동기화 완료: 신규={}, 갱신={}", date, created, updated);
+        if (created > 0 || statusChanged > 0) {
+            log.info("[Scraping] {} 동기화: 신규={}, 상태변경={}", date, created, statusChanged);
+        }
     }
 
-    private boolean upsertGame(KboGameDto dto, Season season) {
+    // 반환값: 1=신규생성, 2=상태변경, 0=점수만갱신, -1=스킵
+    private int upsertGame(KboGameDto dto, Season season) {
         GameStatus newStatus = resolveStatus(dto);
 
         // 취소되지 않은 기존 경기 → 점수/상태 업데이트
         Optional<Game> activeGame = gameRepository.findByKboGameIdAndStatusNot(dto.getGId(), GameStatus.CANCELED);
         if (activeGame.isPresent()) {
-            updateGame(activeGame.get(), dto, newStatus);
-            return false;
+            boolean changed = updateGame(activeGame.get(), dto, newStatus);
+            return changed ? 2 : 0;
         }
 
         LocalDateTime scheduledAt = parseScheduledAt(dto.getGDt(), dto.getGTm());
         if (scheduledAt == null) {
-            return false;
+            return -1;
         }
         LocalDate gameDate = scheduledAt.toLocalDate();
 
         // 같은 날짜에 이미 취소 이력이 있으면 스킵 — 재스캔 시 이력 덮어쓰기 방지
         if (gameRepository.existsByKboGameIdAndGameDate(dto.getGId(), gameDate)) {
-            return false;
+            return -1;
         }
 
         // 완전히 새 경기이거나 다른 날짜로 재편성된 경기 → 새 row 삽입
         Game game = buildNewGame(dto, season, newStatus, scheduledAt);
         if (game != null) {
             gameRepository.save(game);
-            return true;
+            return 1;
         }
-        return false;
+        return -1;
     }
 
     private Game buildNewGame(KboGameDto dto, Season season, GameStatus status, LocalDateTime scheduledAt) {
@@ -273,25 +273,40 @@ public class GameScrapingService {
             .build();
     }
 
-    private void updateGame(Game game, KboGameDto dto, GameStatus newStatus) {
+    // true=상태 전환 발생, false=점수만 변경
+    private boolean updateGame(Game game, KboGameDto dto, GameStatus newStatus) {
         GameStatus prev = game.getStatus();
         Integer inning = dto.getGameInnNo();
         InningHalf half = resolveInningHalf(dto.getGameTbSc());
+        boolean statusTransitioned = false;
 
         if (prev == GameStatus.SCHEDULED && newStatus == GameStatus.IN_PROGRESS) {
             game.start();
+            log.info("[Scraping] 경기 시작: gId={} ({} vs {})", game.getKboGameId(),
+                game.getAwayTeam().getName(), game.getHomeTeam().getName());
+            statusTransitioned = true;
         } else if (prev == GameStatus.IN_PROGRESS && newStatus == GameStatus.SUSPENDED) {
             game.suspend();
+            log.info("[Scraping] 경기 중단: gId={}", game.getKboGameId());
+            statusTransitioned = true;
         } else if (prev == GameStatus.SUSPENDED && newStatus == GameStatus.IN_PROGRESS) {
             game.resume();
+            log.info("[Scraping] 경기 재개: gId={}", game.getKboGameId());
+            statusTransitioned = true;
         } else if (newStatus == GameStatus.FINISHED && prev != GameStatus.FINISHED) {
             if (isCalledByInning(inning)) {
                 game.finishAsColdGame();
+                log.info("[Scraping] 콜드게임 종료: gId={} ({}이닝)", game.getKboGameId(), inning);
             } else {
                 game.finish();
+                log.info("[Scraping] 경기 종료: gId={} ({}-{})",
+                    game.getKboGameId(), parseScore(dto.getTScoreCn()), parseScore(dto.getBScoreCn()));
             }
+            statusTransitioned = true;
         } else if (newStatus == GameStatus.CANCELED && prev != GameStatus.CANCELED) {
             game.cancel(dto.getCancelScNm());
+            log.info("[Scraping] 경기 취소: gId={}, 사유={}", game.getKboGameId(), dto.getCancelScNm());
+            statusTransitioned = true;
         }
 
         if (newStatus == GameStatus.IN_PROGRESS
@@ -303,6 +318,7 @@ public class GameScrapingService {
                 inning != null ? inning : 0,
                 half);
         }
+        return statusTransitioned;
     }
 
     private GameStatus resolveStatus(KboGameDto dto) {

@@ -82,7 +82,20 @@ fix(scraping): 시즌 시작일 파싱 오류 수정
 refactor(auth): refresh token 저장소 PostgreSQL → Redis 교체
 ```
 
-## 개발 규칙
+## 개발 및 검증 규칙
+
+### API 개발 후 필수 검증 절차
+
+새 API를 구현하거나 기존 로직을 수정한 경우, 커밋 전에 반드시 아래 순서로 검증한다.
+
+1. `./gradlew compileJava` — 컴파일 오류 확인
+2. 서버 기동 확인 — `bootRun` 후 Started 로그 확인
+3. curl 또는 HTTP 요청으로 직접 API 호출 — 정상 케이스 + 주요 오류 케이스 모두 확인
+4. 서버 로그에서 예외/오류 없음 확인
+
+컴파일만 통과했다고 완료로 보지 않는다. 실제 서버에서 응답이 올바른 것을 확인한 후에 커밋한다.
+
+### 기타 개발 규칙
 
 - DTO ↔ Entity 변환은 서비스 레이어에서 수행
 - 페이징은 QueryDSL + `Pageable` 조합
