@@ -35,4 +35,6 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     @Query("SELECT COUNT(g) FROM Game g WHERE g.season.id = :seasonId AND g.status = 'FINISHED' AND (g.homeTeam.id = :teamId OR g.awayTeam.id = :teamId)")
     int countFinishedByTeamAndSeason(@Param("teamId") Long teamId, @Param("seasonId") Long seasonId);
+
+    int countByGameDateAndStatus(LocalDate gameDate, GameStatus status);
 }

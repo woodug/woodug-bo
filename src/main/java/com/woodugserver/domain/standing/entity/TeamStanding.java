@@ -56,9 +56,9 @@ public class TeamStanding {
     @Builder.Default private Integer awayLosses = 0;
     @Builder.Default private Integer awayDraws = 0;
 
-    @Builder.Default private Integer last10Wins = 0;
-    @Builder.Default private Integer last10Losses = 0;
-    @Builder.Default private Integer last10Draws = 0;
+    @Column(name = "last10_wins")   @Builder.Default private Integer last10Wins = 0;
+    @Column(name = "last10_losses") @Builder.Default private Integer last10Losses = 0;
+    @Column(name = "last10_draws")  @Builder.Default private Integer last10Draws = 0;
 
     @Builder.Default private Integer runsScored = 0;
     @Builder.Default private Integer runsAllowed = 0;
