@@ -268,7 +268,7 @@ public class GameScrapingService {
             .awayScore(parseScore(dto.getTScoreCn()))
             .currentInning(inning)
             .inningHalf(resolveInningHalf(dto.getGameTbSc()))
-            .cancelReason(status == GameStatus.CANCELED ? trim(dto.getCancelScNm()) : null)
+            .gameNote(trim(dto.getCancelScNm()))
             .isCalledGame(calledGame)
             .awayStartingPitcher(trim(dto.getTPitPNm()))
             .homeStartingPitcher(trim(dto.getBPitPNm()))

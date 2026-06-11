@@ -74,7 +74,7 @@ public class Game extends BaseEntity {
     private LocalDateTime endedAt;
 
     @Column(length = 200)
-    private String cancelReason;
+    private String gameNote;
 
     @Builder.Default
     private Boolean isCalledGame = false;
@@ -127,7 +127,7 @@ public class Game extends BaseEntity {
 
     public void cancel(String reason) {
         this.status = GameStatus.CANCELED;
-        this.cancelReason = reason;
+        this.gameNote = reason;
     }
 
     public void reschedule(LocalDateTime newScheduledAt) {
