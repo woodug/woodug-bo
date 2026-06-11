@@ -28,6 +28,7 @@ public class GameSyncJob {
         log.debug("[GameSyncJob] {} 실시간 동기화 실행", today);
         try {
             gameScrapingService.syncGames(today);
+            gameScrapingService.syncFinishedGameDetails(today);
         } catch (Exception e) {
             log.error("[GameSyncJob] 실패: {}", e.getMessage(), e);
         }

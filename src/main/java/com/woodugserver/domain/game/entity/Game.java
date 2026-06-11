@@ -130,6 +130,11 @@ public class Game extends BaseEntity {
         this.gameNote = reason;
     }
 
+    public void setActualTimes(LocalDateTime startedAt, LocalDateTime endedAt) {
+        if (startedAt != null) this.startedAt = startedAt;
+        if (endedAt != null) this.endedAt = endedAt;
+    }
+
     public void reschedule(LocalDateTime newScheduledAt) {
         this.status = GameStatus.SCHEDULED;
         this.scheduledAt = newScheduledAt;

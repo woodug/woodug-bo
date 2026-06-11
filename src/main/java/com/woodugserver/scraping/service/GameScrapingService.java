@@ -1,6 +1,9 @@
 package com.woodugserver.scraping.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.woodugserver.domain.game.entity.*;
+import com.woodugserver.domain.game.repository.GameInningRepository;
 import com.woodugserver.domain.game.repository.GameRepository;
 import com.woodugserver.domain.season.entity.Season;
 import com.woodugserver.domain.season.entity.SeasonStatus;
@@ -11,6 +14,7 @@ import com.woodugserver.domain.team.repository.StadiumRepository;
 import com.woodugserver.domain.team.repository.TeamRepository;
 import com.woodugserver.scraping.client.KboApiClient;
 import com.woodugserver.scraping.dto.KboGameDto;
+import com.woodugserver.scraping.dto.KboScoreBoardResponse;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,9 +60,11 @@ public class GameScrapingService {
 
     private final KboApiClient kboApiClient;
     private final GameRepository gameRepository;
+    private final GameInningRepository gameInningRepository;
     private final TeamRepository teamRepository;
     private final StadiumRepository stadiumRepository;
     private final SeasonRepository seasonRepository;
+    private final ObjectMapper objectMapper;
 
     private Map<String, Team> teamByCode;
     private Map<Long, Stadium> stadiumById;
@@ -135,6 +141,32 @@ public class GameScrapingService {
             return;
         }
         doScrapeForward(from, season);
+    }
+
+    // ---------------------------------------------------------------
+    // 종료 경기 상세 동기화 (실제 시작/종료 시각 + 이닝별 점수)
+    // ---------------------------------------------------------------
+
+    @Transactional
+    public void syncFinishedGameDetails(LocalDate date) {
+        List<Game> finishedGames = gameRepository.findByGameDateAndStatus(date, GameStatus.FINISHED);
+        for (Game game : finishedGames) {
+            if (gameInningRepository.existsByGameId(game.getId())) continue;
+
+            int seasonId = Integer.parseInt(game.getSeason().getYear());
+            kboApiClient.fetchScoreBoard(game.getKboGameId(), seasonId).ifPresent(sb -> {
+                game.setActualTimes(parseTime(game.getGameDate(), sb.getStartTm()),
+                                    parseTime(game.getGameDate(), sb.getEndTm()));
+
+                if (sb.getTable2() != null) {
+                    List<GameInning> innings = parseInnings(game, sb.getTable2());
+                    if (!innings.isEmpty()) {
+                        gameInningRepository.saveAll(innings);
+                        log.info("[Scraping] 이닝 적재: gId={}, {}이닝", game.getKboGameId(), innings.size());
+                    }
+                }
+            });
+        }
     }
 
     // ---------------------------------------------------------------
@@ -392,6 +424,41 @@ public class GameScrapingService {
 
     private String trim(String value) {
         return (value == null || value.isBlank()) ? null : value.trim();
+    }
+
+    private LocalDateTime parseTime(LocalDate date, String timeTm) {
+        try {
+            if (timeTm == null || timeTm.isBlank()) return null;
+            return LocalDateTime.of(date, LocalTime.parse(timeTm.trim(), TIME_FMT));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private List<GameInning> parseInnings(Game game, String table2Json) {
+        try {
+            JsonNode rows = objectMapper.readTree(table2Json).path("rows");
+            if (rows.size() < 2) return List.of();
+
+            JsonNode awayRow = rows.get(0).path("row"); // T(원정)
+            JsonNode homeRow = rows.get(1).path("row"); // B(홈)
+
+            List<GameInning> innings = new ArrayList<>();
+            int count = Math.min(awayRow.size(), homeRow.size());
+            for (int i = 0; i < count; i++) {
+                String awayText = awayRow.get(i).path("Text").asText("-");
+                String homeText = homeRow.get(i).path("Text").asText("-");
+                if ("-".equals(awayText) && "-".equals(homeText)) break; // 미진행 이닝
+
+                int awayScore = "-".equals(awayText) ? 0 : Integer.parseInt(awayText);
+                int homeScore = "-".equals(homeText) ? 0 : Integer.parseInt(homeText);
+                innings.add(GameInning.of(game, i + 1, homeScore, awayScore));
+            }
+            return innings;
+        } catch (Exception e) {
+            log.warn("[Scraping] 이닝 파싱 실패: gId={}, error={}", game.getKboGameId(), e.getMessage());
+            return List.of();
+        }
     }
 
     private InningHalf resolveInningHalf(String gameTbSc) {
