@@ -112,10 +112,15 @@ CREATE TABLE games
     inning_half    VARCHAR(10),                                -- TOP: 초(원정 공격) | BOTTOM: 말(홈 공격)
     started_at     TIMESTAMP,                                  -- 실제 시작 시각
     ended_at       TIMESTAMP,                                  -- 실제 종료 시각
-    cancel_reason  VARCHAR(200),                               -- 취소/중단 사유 (우천, 강풍 등)
-    is_called_game Bool        not null default false,         -- 콜드 게임 여부
-    created_at     TIMESTAMP   NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMP   NOT NULL DEFAULT NOW()
+    cancel_reason           VARCHAR(200),            -- 취소 사유 (우천취소 등). 취소된 경기만 값 존재
+    is_called_game          BOOL        NOT NULL DEFAULT FALSE,
+    away_starting_pitcher   VARCHAR(50),             -- 원정 선발투수 이름
+    home_starting_pitcher   VARCHAR(50),             -- 홈 선발투수 이름
+    winning_pitcher         VARCHAR(50),             -- 승리투수
+    losing_pitcher          VARCHAR(50),             -- 패전투수
+    save_pitcher            VARCHAR(50),             -- 세이브
+    created_at              TIMESTAMP   NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE games IS 'KBO 경기 정보';
@@ -123,7 +128,7 @@ COMMENT ON COLUMN games.game_date IS '경기 날짜. scheduled_at과 별도로 �
 COMMENT ON COLUMN games.scheduled_at IS '예정 시작 시각. 우천 지연 시 업데이트';
 COMMENT ON COLUMN games.status IS 'SCHEDULED: 예정 | IN_PROGRESS: 진행중 | SUSPENDED: 중단 | FINISHED: 종료 | CANCELLED: 취소/연기';
 COMMENT ON COLUMN games.inning_half IS 'TOP: 초(원정팀 공격) | BOTTOM: 말(홈팀 공격)';
-COMMENT ON COLUMN games.cancel_reason IS '취소/중단/연기 사유 (예: 우천취소, 강풍)';
+COMMENT ON COLUMN games.cancel_reason IS '취소 사유 (예: 우천취소, 강풍). status=CANCELED인 경우에만 값 존재';
 COMMENT ON COLUMN games.is_called_game IS '콜드게임(Called Game) 여부. status=FINISHED이면서 정규 이닝 전에 종료된 경기 (우천콜드, 점수차콜드)';
 
 CREATE INDEX idx_games_game_date ON games (game_date);
@@ -445,4 +450,14 @@ ALTER TABLE games ADD COLUMN IF NOT EXISTS kbo_game_id VARCHAR(20);
 -- UNIQUE → partial unique index 교체 (취소 이력 보존)
 DROP INDEX IF EXISTS games_kbo_game_id_key;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_games_kbo_game_id_active ON games (kbo_game_id) WHERE status <> 'CANCELLED';
+
+-- 투수 정보 컬럼 추가
+ALTER TABLE games ADD COLUMN IF NOT EXISTS away_starting_pitcher VARCHAR(50);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS home_starting_pitcher VARCHAR(50);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS winning_pitcher        VARCHAR(50);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS losing_pitcher         VARCHAR(50);
+ALTER TABLE games ADD COLUMN IF NOT EXISTS save_pitcher           VARCHAR(50);
+
+-- cancel_reason 정리: 취소되지 않은 경기의 '정상경기' 값 제거
+UPDATE games SET cancel_reason = NULL WHERE status <> 'CANCELED';
 
