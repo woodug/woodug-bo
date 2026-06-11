@@ -18,6 +18,8 @@ import com.woodugserver.scraping.dto.KboScoreBoardResponse;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +67,11 @@ public class GameScrapingService {
     private final StadiumRepository stadiumRepository;
     private final SeasonRepository seasonRepository;
     private final ObjectMapper objectMapper;
+
+    // @Async 컨텍스트에서 @Transactional 메서드 호출을 위한 self-injection
+    @Lazy
+    @Autowired
+    private GameScrapingService self;
 
     private Map<String, Team> teamByCode;
     private Map<Long, Stadium> stadiumById;
@@ -147,26 +154,56 @@ public class GameScrapingService {
     // 종료 경기 상세 동기화 (실제 시작/종료 시각 + 이닝별 점수)
     // ---------------------------------------------------------------
 
-    @Transactional
     public void syncFinishedGameDetails(LocalDate date) {
         List<Game> finishedGames = gameRepository.findByGameDateAndStatus(date, GameStatus.FINISHED);
         for (Game game : finishedGames) {
-            if (gameInningRepository.existsByGameId(game.getId())) continue;
-
-            int seasonId = Integer.parseInt(game.getSeason().getYear());
-            kboApiClient.fetchScoreBoard(game.getKboGameId(), seasonId).ifPresent(sb -> {
-                game.setActualTimes(parseTime(game.getGameDate(), sb.getStartTm()),
-                                    parseTime(game.getGameDate(), sb.getEndTm()));
-
-                if (sb.getTable2() != null) {
-                    List<GameInning> innings = parseInnings(game, sb.getTable2());
-                    if (!innings.isEmpty()) {
-                        gameInningRepository.saveAll(innings);
-                        log.info("[Scraping] 이닝 적재: gId={}, {}이닝", game.getKboGameId(), innings.size());
-                    }
-                }
-            });
+            if (!gameInningRepository.existsByGameId(game.getId())) {
+                self.processScoreBoardForGame(game.getId());
+            }
         }
+    }
+
+    @Transactional
+    public void processScoreBoardForGame(Long gameId) {
+        Game game = gameRepository.findById(gameId).orElse(null);
+        if (game == null) return;
+
+        int seasonId = Integer.parseInt(game.getSeason().getYear());
+        kboApiClient.fetchScoreBoard(game.getKboGameId(), seasonId).ifPresent(sb -> {
+            game.setActualTimes(parseTime(game.getGameDate(), sb.getStartTm()),
+                                parseTime(game.getGameDate(), sb.getEndTm()));
+            if (sb.getTable2() != null) {
+                List<GameInning> innings = parseInnings(game, sb.getTable2());
+                if (!innings.isEmpty()) {
+                    gameInningRepository.saveAll(innings);
+                    log.info("[Scraping] 이닝 적재: gId={}, {}이닝", game.getKboGameId(), innings.size());
+                }
+            }
+        });
+    }
+
+    @Async
+    public void backfillFinishedGameDetails() {
+        List<Long> gameIds = gameRepository.findFinishedGameIdsWithoutInnings();
+        log.info("[Backfill] 대상 {}경기 처리 시작", gameIds.size());
+        int success = 0;
+        for (Long gameId : gameIds) {
+            try {
+                self.processScoreBoardForGame(gameId);
+                success++;
+                if (success % 20 == 0) {
+                    log.info("[Backfill] 진행중: {}/{}", success, gameIds.size());
+                }
+                Thread.sleep(SCRAPE_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("[Backfill] 인터럽트됨, 중단");
+                return;
+            } catch (Exception e) {
+                log.error("[Backfill] gameId={} 실패: {}", gameId, e.getMessage());
+            }
+        }
+        log.info("[Backfill] 완료: {}/{}경기", success, gameIds.size());
     }
 
     // ---------------------------------------------------------------

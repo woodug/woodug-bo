@@ -23,6 +23,9 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     List<Game> findByGameDateAndStatus(LocalDate gameDate, GameStatus status);
 
+    @Query("SELECT g.id FROM Game g WHERE g.status = 'FINISHED' AND NOT EXISTS (SELECT gi FROM GameInning gi WHERE gi.game = g)")
+    List<Long> findFinishedGameIdsWithoutInnings();
+
     List<Game> findByGameDateAndStatusIn(LocalDate gameDate, List<GameStatus> statuses);
 
     boolean existsByGameDateAndStatusIn(LocalDate gameDate, List<GameStatus> statuses);
