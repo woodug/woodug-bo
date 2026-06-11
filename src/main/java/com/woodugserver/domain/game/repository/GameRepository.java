@@ -32,4 +32,7 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     @Query("SELECT MIN(g.scheduledAt) FROM Game g WHERE g.gameDate = :date AND g.status IN :statuses")
     Optional<LocalDateTime> findEarliestScheduledAt(@Param("date") LocalDate date, @Param("statuses") List<GameStatus> statuses);
+
+    @Query("SELECT COUNT(g) FROM Game g WHERE g.season.id = :seasonId AND g.status = 'FINISHED' AND (g.homeTeam.id = :teamId OR g.awayTeam.id = :teamId)")
+    int countFinishedByTeamAndSeason(@Param("teamId") Long teamId, @Param("seasonId") Long seasonId);
 }

@@ -2,6 +2,7 @@ package com.woodugserver.domain.standing.entity;
 
 import com.woodugserver.domain.season.entity.Season;
 import com.woodugserver.domain.team.entity.Team;
+import com.woodugserver.scraping.dto.KboStandingsDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -66,15 +67,23 @@ public class TeamStanding {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    public void update(int rank, int wins, int losses, int draws,
-                       BigDecimal winningPct, BigDecimal gamesBehind, String streak) {
-        this.rank = rank;
-        this.wins = wins;
-        this.losses = losses;
-        this.draws = draws;
-        this.gamesPlayed = wins + losses + draws;
-        this.winningPct = winningPct;
-        this.gamesBehind = gamesBehind;
-        this.streak = streak;
+    public void update(KboStandingsDto dto) {
+        this.rank = dto.getRank();
+        this.wins = dto.getWins();
+        this.losses = dto.getLosses();
+        this.draws = dto.getDraws();
+        this.gamesPlayed = dto.getGamesPlayed();
+        this.winningPct = dto.getWinningPct();
+        this.gamesBehind = dto.getGamesBehind();
+        this.streak = dto.getStreak();
+        this.homeWins = dto.getHomeWins();
+        this.homeLosses = dto.getHomeLosses();
+        this.homeDraws = dto.getHomeDraws();
+        this.awayWins = dto.getAwayWins();
+        this.awayLosses = dto.getAwayLosses();
+        this.awayDraws = dto.getAwayDraws();
+        this.last10Wins = dto.getLast10Wins();
+        this.last10Losses = dto.getLast10Losses();
+        this.last10Draws = dto.getLast10Draws();
     }
 }

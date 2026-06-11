@@ -1,6 +1,7 @@
 package com.woodugserver.scraping.scheduler;
 
 import com.woodugserver.scraping.service.GameScrapingService;
+import com.woodugserver.scraping.service.StandingsScrapingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,13 +19,22 @@ import java.time.LocalDate;
 public class GameSyncJob {
 
     private final GameScrapingService gameScrapingService;
+    private final StandingsScrapingService standingsScrapingService;
     private final GameWindowChecker gameWindowChecker;
 
     @Scheduled(fixedDelayString = "${scraping.kbo.schedule.sync-delay-ms:30000}")
     public void run() {
+        LocalDate today = LocalDate.now();
+
+        // 순위 동기화: 경기 윈도우와 무관하게 체크 (내부에서 조건 판단)
+        try {
+            standingsScrapingService.syncStandings(today);
+        } catch (Exception e) {
+            log.error("[GameSyncJob] 순위 동기화 오류: {}", e.getMessage(), e);
+        }
+
         if (!gameWindowChecker.shouldSync()) return;
 
-        LocalDate today = LocalDate.now();
         log.debug("[GameSyncJob] {} 실시간 동기화 실행", today);
         try {
             gameScrapingService.syncGames(today);
