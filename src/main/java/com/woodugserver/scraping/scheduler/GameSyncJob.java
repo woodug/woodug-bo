@@ -1,5 +1,7 @@
 package com.woodugserver.scraping.scheduler;
 
+import com.woodugserver.domain.game.entity.GameStatus;
+import com.woodugserver.domain.game.repository.GameRepository;
 import com.woodugserver.scraping.service.GameScrapingService;
 import com.woodugserver.scraping.service.StandingsScrapingService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 30초마다 실행, 단 경기 시간대(15:00~자정)에만 실제 동기화 수행
@@ -21,6 +24,7 @@ public class GameSyncJob {
     private final GameScrapingService gameScrapingService;
     private final StandingsScrapingService standingsScrapingService;
     private final GameWindowChecker gameWindowChecker;
+    private final GameRepository gameRepository;
 
     @Scheduled(fixedDelayString = "${scraping.kbo.schedule.sync-delay-ms:30000}")
     public void run() {
@@ -33,7 +37,11 @@ public class GameSyncJob {
             log.error("[GameSyncJob] 순위 동기화 오류: {}", e.getMessage(), e);
         }
 
-        if (!gameWindowChecker.shouldSync()) return;
+        if (!gameWindowChecker.shouldSync()) {
+            // 오늘 경기가 모두 종료된 경우 내일 선발투수 동기화 시도
+            syncTomorrowPitchersIfNeeded(today);
+            return;
+        }
 
         log.debug("[GameSyncJob] {} 실시간 동기화 실행", today);
         try {
@@ -41,6 +49,21 @@ public class GameSyncJob {
             gameScrapingService.syncFinishedGameDetails(today);
         } catch (Exception e) {
             log.error("[GameSyncJob] 실패: {}", e.getMessage(), e);
+        }
+    }
+
+    private void syncTomorrowPitchersIfNeeded(LocalDate today) {
+        // 오늘 FINISHED 경기가 없으면 스킵 (경기 없는 날 또는 경기 시작 전)
+        if (!gameRepository.existsByGameDateAndStatusIn(today, List.of(GameStatus.FINISHED))) return;
+
+        LocalDate tomorrow = today.plusDays(1);
+        if (gameRepository.countScheduledWithMissingPitchers(tomorrow) == 0) return;
+
+        log.debug("[GameSyncJob] {} 선발투수 미등록 경기 있음, 내일 일정 동기화", tomorrow);
+        try {
+            gameScrapingService.syncGames(tomorrow);
+        } catch (Exception e) {
+            log.error("[GameSyncJob] 내일 선발투수 동기화 오류: {}", e.getMessage(), e);
         }
     }
 }

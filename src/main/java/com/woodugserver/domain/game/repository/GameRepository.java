@@ -37,4 +37,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     int countFinishedByTeamAndSeason(@Param("teamId") Long teamId, @Param("seasonId") Long seasonId);
 
     int countByGameDateAndStatus(LocalDate gameDate, GameStatus status);
+
+    @Query("SELECT COUNT(g) FROM Game g WHERE g.gameDate = :date AND g.status = 'SCHEDULED' AND (g.awayStartingPitcher IS NULL OR g.homeStartingPitcher IS NULL)")
+    int countScheduledWithMissingPitchers(@Param("date") LocalDate date);
+
+    @Query("SELECT DISTINCT g.gameDate FROM Game g WHERE g.gameDate < :today AND g.status IN :statuses ORDER BY g.gameDate")
+    List<LocalDate> findPastDatesWithStatus(@Param("today") LocalDate today, @Param("statuses") List<GameStatus> statuses);
 }

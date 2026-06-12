@@ -1,5 +1,6 @@
 package com.woodugserver.scraping.scheduler;
 
+import com.woodugserver.domain.game.entity.GameStatus;
 import com.woodugserver.domain.game.repository.GameRepository;
 import com.woodugserver.domain.season.entity.Season;
 import com.woodugserver.domain.season.repository.SeasonRepository;
@@ -39,7 +40,21 @@ public class SeasonInitJob implements ApplicationRunner {
 
         log.info("[SeasonInitJob] {}년 시즌 데이터 존재, 누락 데이터 확인", year);
 
-        // 이닝 백필: FINISHED 경기 중 이닝 미적재 경기가 있으면 실행
+        // 서버 다운 기간 미업데이트 경기 복구: 과거 날짜에 SCHEDULED/IN_PROGRESS/SUSPENDED가 남아있으면 재동기화
+        List<LocalDate> staleDates = gameRepository.findPastDatesWithStatus(
+                LocalDate.now(), List.of(GameStatus.SCHEDULED, GameStatus.IN_PROGRESS, GameStatus.SUSPENDED));
+        if (!staleDates.isEmpty()) {
+            log.info("[SeasonInitJob] 미업데이트 과거 경기 {}일자 복구 시작: {}", staleDates.size(), staleDates);
+            for (LocalDate staleDate : staleDates) {
+                try {
+                    gameScrapingService.syncGames(staleDate);
+                } catch (Exception e) {
+                    log.error("[SeasonInitJob] {} 경기 복구 실패: {}", staleDate, e.getMessage(), e);
+                }
+            }
+        }
+
+        // 이닝 백필: FINISHED 경기 중 이닝 미적재 경기가 있으면 실행 (복구된 경기 포함)
         List<Long> missingInnings = gameRepository.findFinishedGameIdsWithoutInnings();
         if (!missingInnings.isEmpty()) {
             log.info("[SeasonInitJob] 이닝 미적재 경기 {}개, 백필 시작", missingInnings.size());
