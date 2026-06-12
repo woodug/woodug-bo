@@ -251,7 +251,7 @@ CREATE TABLE team_standings
     losses        INT       NOT NULL DEFAULT 0, -- 패
     draws         INT       NOT NULL DEFAULT 0, -- 무
     winning_pct   NUMERIC(5, 3),                -- 승률
-    games_behind  NUMERIC(5, 1),                -- 게차 (1위 기준)
+    games_behind  NUMERIC(5, 1),                -- 게임차 (1위 기준)
     streak        VARCHAR(10),                  -- 연승/연패 표기 (예: W3, L2)
     home_wins     INT       NOT NULL DEFAULT 0,
     home_losses   INT       NOT NULL DEFAULT 0,
@@ -441,23 +441,4 @@ COMMENT ON TABLE comment_likes IS '댓글 좋아요. 사용자당 댓글 1회만
 
 CREATE INDEX idx_comment_likes_comment_id ON comment_likes (comment_id);
 
--- ============================================================
--- 마이그레이션
--- ============================================================
-
--- games.kbo_game_id 추가 (기존 DB 대상)
-ALTER TABLE games ADD COLUMN IF NOT EXISTS kbo_game_id VARCHAR(20);
--- UNIQUE → partial unique index 교체 (취소 이력 보존)
-DROP INDEX IF EXISTS games_kbo_game_id_key;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_games_kbo_game_id_active ON games (kbo_game_id) WHERE status <> 'CANCELLED';
-
--- 투수 정보 컬럼 추가
-ALTER TABLE games ADD COLUMN IF NOT EXISTS away_starting_pitcher VARCHAR(50);
-ALTER TABLE games ADD COLUMN IF NOT EXISTS home_starting_pitcher VARCHAR(50);
-ALTER TABLE games ADD COLUMN IF NOT EXISTS winning_pitcher        VARCHAR(50);
-ALTER TABLE games ADD COLUMN IF NOT EXISTS losing_pitcher         VARCHAR(50);
-ALTER TABLE games ADD COLUMN IF NOT EXISTS save_pitcher           VARCHAR(50);
-
--- cancel_reason → game_note 컬럼명 변경
-ALTER TABLE games RENAME COLUMN cancel_reason TO game_note;
 
