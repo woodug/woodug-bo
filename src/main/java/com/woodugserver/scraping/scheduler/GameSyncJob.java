@@ -38,8 +38,8 @@ public class GameSyncJob {
         }
 
         if (!gameWindowChecker.shouldSync()) {
-            // 오늘 경기가 모두 종료된 경우 내일 선발투수 동기화 시도
-            syncTomorrowPitchersIfNeeded(today);
+            syncTodayFinishedIfNeeded(today);    // 이닝/투수 미적재 재시도
+            syncTomorrowPitchersIfNeeded(today); // 내일 선발투수 동기화
             return;
         }
 
@@ -49,6 +49,18 @@ public class GameSyncJob {
             gameScrapingService.syncFinishedGameDetails(today);
         } catch (Exception e) {
             log.error("[GameSyncJob] 실패: {}", e.getMessage(), e);
+        }
+    }
+
+    private void syncTodayFinishedIfNeeded(LocalDate today) {
+        if (gameRepository.countFinishedWithoutInningsByDate(today) == 0) return;
+
+        log.debug("[GameSyncJob] {} 이닝 미적재 경기 있음, 종료 경기 재동기화", today);
+        try {
+            gameScrapingService.syncGames(today);
+            gameScrapingService.syncFinishedGameDetails(today);
+        } catch (Exception e) {
+            log.error("[GameSyncJob] 오늘 종료 경기 재동기화 오류: {}", e.getMessage(), e);
         }
     }
 
