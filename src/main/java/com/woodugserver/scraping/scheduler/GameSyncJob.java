@@ -53,9 +53,11 @@ public class GameSyncJob {
     }
 
     private void syncTodayFinishedIfNeeded(LocalDate today) {
-        if (gameRepository.countFinishedWithoutInningsByDate(today) == 0) return;
+        boolean missingInnings  = gameRepository.countFinishedWithoutInningsByDate(today) > 0;
+        boolean missingPitchers = gameRepository.countFinishedWithMissingWinnerByDate(today) > 0;
+        if (!missingInnings && !missingPitchers) return;
 
-        log.debug("[GameSyncJob] {} 이닝 미적재 경기 있음, 종료 경기 재동기화", today);
+        log.debug("[GameSyncJob] {} 종료 경기 재동기화 (이닝미적재={}, 투수미적재={})", today, missingInnings, missingPitchers);
         try {
             gameScrapingService.syncGames(today);
             gameScrapingService.syncFinishedGameDetails(today);

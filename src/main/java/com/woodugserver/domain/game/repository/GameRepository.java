@@ -46,4 +46,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     @Query("SELECT DISTINCT g.gameDate FROM Game g WHERE g.gameDate < :today AND g.status IN :statuses ORDER BY g.gameDate")
     List<LocalDate> findPastDatesWithStatus(@Param("today") LocalDate today, @Param("statuses") List<GameStatus> statuses);
+
+    @Query("SELECT DISTINCT g.gameDate FROM Game g WHERE g.gameDate < :today AND g.status = 'FINISHED' AND g.homeScore <> g.awayScore AND g.winningPitcher IS NULL ORDER BY g.gameDate")
+    List<LocalDate> findPastDatesWithMissingWinners(@Param("today") LocalDate today);
+
+    @Query("SELECT COUNT(g) FROM Game g WHERE g.gameDate = :date AND g.status = 'FINISHED' AND g.homeScore <> g.awayScore AND g.winningPitcher IS NULL")
+    int countFinishedWithMissingWinnerByDate(@Param("date") LocalDate date);
 }

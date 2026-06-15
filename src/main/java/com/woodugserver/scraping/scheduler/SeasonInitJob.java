@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 @Slf4j
 @Component
@@ -40,16 +42,19 @@ public class SeasonInitJob implements ApplicationRunner {
 
         log.info("[SeasonInitJob] {}년 시즌 데이터 존재, 누락 데이터 확인", year);
 
-        // 서버 다운 기간 미업데이트 경기 복구: 과거 날짜에 SCHEDULED/IN_PROGRESS/SUSPENDED가 남아있으면 재동기화
-        List<LocalDate> staleDates = gameRepository.findPastDatesWithStatus(
-                LocalDate.now(), List.of(GameStatus.SCHEDULED, GameStatus.IN_PROGRESS, GameStatus.SUSPENDED));
-        if (!staleDates.isEmpty()) {
-            log.info("[SeasonInitJob] 미업데이트 과거 경기 {}일자 복구 시작: {}", staleDates.size(), staleDates);
-            for (LocalDate staleDate : staleDates) {
+        // 서버 다운 기간 미업데이트 경기 복구 + 승리투수 미적재 날짜 재동기화
+        Set<LocalDate> datesToSync = new TreeSet<>();
+        datesToSync.addAll(gameRepository.findPastDatesWithStatus(
+                LocalDate.now(), List.of(GameStatus.SCHEDULED, GameStatus.IN_PROGRESS, GameStatus.SUSPENDED)));
+        datesToSync.addAll(gameRepository.findPastDatesWithMissingWinners(LocalDate.now()));
+
+        if (!datesToSync.isEmpty()) {
+            log.info("[SeasonInitJob] 과거 경기 재동기화 대상 {}일자: {}", datesToSync.size(), datesToSync);
+            for (LocalDate date : datesToSync) {
                 try {
-                    gameScrapingService.syncGames(staleDate);
+                    gameScrapingService.syncGames(date);
                 } catch (Exception e) {
-                    log.error("[SeasonInitJob] {} 경기 복구 실패: {}", staleDate, e.getMessage(), e);
+                    log.error("[SeasonInitJob] {} 경기 재동기화 실패: {}", date, e.getMessage(), e);
                 }
             }
         }
