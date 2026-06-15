@@ -24,6 +24,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -158,13 +160,18 @@ public class GameScrapingService {
         List<Game> finishedGames = gameRepository.findByGameDateAndStatus(date, GameStatus.FINISHED);
         for (Game game : finishedGames) {
             if (!gameInningRepository.existsByGameId(game.getId())) {
-                self.processScoreBoardForGame(game.getId());
+                try {
+                    self.processScoreBoardForGame(game.getId());
+                } catch (DataIntegrityViolationException e) {
+                    log.warn("[Scraping] 이닝 중복 삽입 무시 (동시 적재): gId={}", game.getKboGameId());
+                }
             }
         }
     }
 
     @Transactional
     public void processScoreBoardForGame(Long gameId) {
+        if (gameInningRepository.existsByGameId(gameId)) return;
         Game game = gameRepository.findById(gameId).orElse(null);
         if (game == null) return;
 
@@ -199,6 +206,8 @@ public class GameScrapingService {
                 Thread.currentThread().interrupt();
                 log.warn("[Backfill] 인터럽트됨, 중단");
                 return;
+            } catch (DataIntegrityViolationException e) {
+                log.warn("[Backfill] 이닝 중복 삽입 무시 (동시 적재): gameId={}", gameId);
             } catch (Exception e) {
                 log.error("[Backfill] gameId={} 실패: {}", gameId, e.getMessage());
             }
