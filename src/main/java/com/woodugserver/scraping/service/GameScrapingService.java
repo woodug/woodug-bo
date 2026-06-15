@@ -124,6 +124,7 @@ public class GameScrapingService {
 
         Season season = createSeason(year, startDate);
         doScrapeForward(startDate, season);
+        backfillFinishedGameDetails();
     }
 
     // ---------------------------------------------------------------
